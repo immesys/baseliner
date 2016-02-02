@@ -9,6 +9,8 @@ import re
 parser = argparse.ArgumentParser(description='Run a power baseline')
 parser.add_argument('platform', metavar='P', type=str, action='store',
                    help='The platform to target')
+parser.add_argument('configuration', type=str, action='store',
+                   help='The platform configuration')
 parser.add_argument('image', type=str, action='store',
                    help='The name of the image')
 parser.add_argument('comment', type=str, action='store',
@@ -17,6 +19,14 @@ parser.add_argument('repository', type=str, action='store',
                    help='The repository URL for the code')
 parser.add_argument('commit', type=str, action='store',
                    help='The commit hash')
+parser.add_argument('window', type=int, action='store', default=60,
+                   help='The length of an evaluation window')
+parser.add_argument('vstart', type=float, action='store', default=3.20,
+                   help='The start voltage')
+parser.add_argument('vmin', type=float, action='store', default=3.00,
+                   help='The min voltage trip')
+parser.add_argument('vmax', type=float, action='store', default=3.4,
+                   help='The max voltage trip')
 args = parser.parse_args()
 
 init()
@@ -32,10 +42,9 @@ except:
 RST()
 time.sleep(1)
 
-#plat = create_platform("hamilton","stock")
-plat = load_platform("firestorm","stock")
-img = plat.create_image("hamilton_blank_1")
-#img = plat.load_image("tinyos_gabe_test","initial1")
-s = Scheduler(60,3.0,3.15,3.30,img, skipfine=False)
+plat = load_or_create_platform(args.platform, args.configuration
+img = plat.load_or_create_image(args.image)
+print "IDENTIFIERS:", plat.id, img.id
+s = Scheduler(args.window,args.vmin,args.vstart,args.vmax,img, skipfine=False)
 
 s.begin()
