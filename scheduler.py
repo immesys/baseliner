@@ -34,7 +34,7 @@ def reboot_target(vtarget, compl):
 class Scheduler(object):
 
     def __init__ (self, target_time, v_min, v_start, v_max, img, \
-        outside_runs=1, core_runs=7, boot_slack=3, idle_c_compl=0.1, tick=0.15, skipfine=False):
+        outside_runs=1, core_runs=7, boot_slack=3, idle_c_compl=0.1, tick=0.15, finesteps=64, skipfine=False):
         self.target_time = target_time
         self.v_min = v_min
         self.v_start = v_start
@@ -46,6 +46,7 @@ class Scheduler(object):
         self.idle_c_compl = idle_c_compl
         self.tick = tick
         self.skipfine=skipfine
+        self.finesteps = finesteps
         wcmd(":SYST:BEEP:STAT 0")
 
     def begin(self):
@@ -66,6 +67,7 @@ class Scheduler(object):
         print "\033[33;1mCOMPLETED COARSE: %.3f < C < %.3f \033[0m" % (start*1000, end*1000)
 
         subcoursesteps = 32
+        #subcoursesteps = 4
         subcoarse = []
         cur = start
         for i in xrange(subcoursesteps):
@@ -97,6 +99,7 @@ class Scheduler(object):
         medium = []
         cur = start
         msteps = 32
+        #msteps=4
         for i in xrange(msteps):
             frac, res, v = self.do_run(cur, "medium_%d" % seqno, self.target_time/10., "medium")
             print ("\033[34;1m [M]> i=%.3fmA frac=%.2f%% res=%s v=%.2f \033[0m" %
@@ -135,7 +138,7 @@ class Scheduler(object):
         start = max(0, start)
         print "\033[33;1mCOMPLETED MEDIUM: %.3f < C < %.3f \033[0m" % (start*1000, end*1000)
         #print "Medium determination: %.3f < current < %.3f" % (start*1000, end*1000)
-        steps = 64
+        steps = self.finesteps
         delta = (end-start)/float(steps)
         tests = [start + i*delta for i in xrange(steps)] * self.core_runs
         #This should help disperse real-world time-varying factors like temperature
@@ -185,28 +188,28 @@ class Scheduler(object):
         cfg_vsource(0, 0.02)
         if "CMPL" in flags or v >= self.v_max:
             run.log_result(frac, t, v, +1)
-            wcmd(":SYST:BEEP:STAT 1")
-            wcmd(":SYST:BEEP 800, 0.1")
-            time.sleep(0.1)
-            wcmd(":SYST:BEEP 1200, 0.1")
-            time.sleep(0.2)
-            wcmd(":SYST:BEEP:STAT 0")
+            #wcmd(":SYST:BEEP:STAT 1")
+            #wcmd(":SYST:BEEP 800, 0.1")
+            #time.sleep(0.1)
+            #wcmd(":SYST:BEEP 1200, 0.1")
+            #time.sleep(0.2)
+            #wcmd(":SYST:BEEP:STAT 0")
             return frac,+1, v
         elif v <= self.v_min:
             run.log_result(frac, t, v, -1)
-            wcmd(":SYST:BEEP:STAT 1")
-            wcmd(":SYST:BEEP 800, 0.1")
-            time.sleep(0.1)
-            wcmd(":SYST:BEEP 600, 0.1")
-            time.sleep(0.2)
-            wcmd(":SYST:BEEP:STAT 0")
+            #wcmd(":SYST:BEEP:STAT 1")
+            #wcmd(":SYST:BEEP 800, 0.1")
+            #time.sleep(0.1)
+            #wcmd(":SYST:BEEP 600, 0.1")
+            #time.sleep(0.2)
+            #wcmd(":SYST:BEEP:STAT 0")
             return frac,-1, v
         else:
             run.log_result(frac, t, v, 0)
-            wcmd(":SYST:BEEP:STAT 1")
-            wcmd(":SYST:BEEP 800, 0.1")
-            time.sleep(0.1)
-            wcmd(":SYST:BEEP 800, 0.1")
-            time.sleep(0.2)
-            wcmd(":SYST:BEEP:STAT 0")
+            #wcmd(":SYST:BEEP:STAT 1")
+            #wcmd(":SYST:BEEP 800, 0.1")
+            #time.sleep(0.1)
+            #wcmd(":SYST:BEEP 800, 0.1")
+            #time.sleep(0.2)
+            #wcmd(":SYST:BEEP:STAT 0")
             return frac,0, v
