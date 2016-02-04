@@ -26,7 +26,6 @@ retrigger_phrase = "@profilebot please recheck this"
 gh = Github("profilebot", password)
 repo = gh.get_repo("PowerProfiler/RIOT")
 PRs = repo.get_pulls()
-
 def mkreport(results, pullreq, commit, testapps):
     template="""
 # Power profile
@@ -49,7 +48,7 @@ Application  |  Avg [mA] | Trials | Time | Norm. Batt. | Graph
 
 def genplot(imgid, imgname, subtitle):
     majorFormatter = FormatStrFormatter('%.3f')
-    cur.execute("SELECT * FROM report_run_ssq WHERE img=%s",(imgid,))
+    cur.execute("SELECT * FROM report_run_ssq WHERE img=%s AND frac > 0.99",(imgid,))
     x = []
     y = []
     r = cur.fetchone()
@@ -57,17 +56,28 @@ def genplot(imgid, imgname, subtitle):
         x.append(float(r[2])*1000)
         y.append(math.log(float(r[4])))
         r = cur.fetchone()
+    cur.execute("SELECT * FROM report_run_ssq WHERE img=%s AND frac <= 0.99",(imgid,))
+    x2 = []
+    y2 = []
+    r = cur.fetchone()
+    while r != None:
+        x2.append(float(r[2])*1000)
+        y2.append(math.log(float(r[4])))
+        r = cur.fetchone()
     fig, ax = plt.subplots(figsize=(16,10))
     ax.grid(True)
-    plt.plot(x,y,"b+")
+    plt.plot(x,y,"go", label="Full trial completed")
+    plt.plot(x2,y2,"r+", label="Trial tripped early")
     start, end = ax.get_xlim()
-    ax.xaxis.set_ticks(np.arange(start, end, (end-start)/26.))
+    ax.xaxis.set_ticks(np.arange(start, end, (end-start)/23.))
     axis_font = {'fontname':'Arial', 'size':'18'}
     title_font = {'fontname':'Arial', 'size':'18'}
     ax.xaxis.set_major_formatter(majorFormatter)
     plt.xlabel("Current [mA]", **axis_font)
     plt.ylabel("ln($\Sigma \Delta V^2)$", **axis_font)
     plt.title("Sum of the deviation from expected voltage squared vs current - low values imply current is correct\n"+subtitle, **title_font)
+    leg = plt.legend()
+    leg.get_frame().set_facecolor('#FFFFFF')
     plt.show()
     os.makedirs("/srv/reports/"+imgname)
     plt.savefig("/srv/reports/%s/deviance.pdf" % imgname)
@@ -130,10 +140,16 @@ for i in torun:
             subprocess.check_call(["git","clean", "-dfx"])
             subprocess.check_call(["git","fetch","--all"])
             subprocess.check_call(["git","fetch","origin","pull/%d/head:T%s" %(pr.number, tbranch)])
-            subprocess.check_call(["git","checkout","hamilton-support"])
-            subprocess.check_call(["git","pull"])
-            subprocess.check_call(["git","checkout","-b","H"+tbranch])
-            subprocess.check_call(["git","rebase","--onto","T"+tbranch, "master", "H"+tbranch])
+            preserveCode=False
+            if preserveCode:
+                subprocess.check_call(["git","checkout","hamilton-support"])
+                subprocess.check_call(["git","pull"])
+                subprocess.check_call(["git","checkout","-b","H"+tbranch])
+                subprocess.check_call(["git","rebase","--onto","T"+tbranch, "master", "H"+tbranch])
+            else:
+                subprocess.check_call(["git","checkout","T"+tbranch])
+                subprocess.check_call(["git","merge","hamilton-support","--no-commit"])
+      
         except Exception as e:
             pr.create_issue_comment("I could not rebase in the platform support. @immesys, I need human help")
             print traceback.format_exc()
@@ -189,7 +205,7 @@ for i in torun:
                pid, imgid = idents.splitlines()[0].strip().split()
                pid, imgid = int(pid), int(imgid)
                print "done: ", pid, imgid
-               ploturl = genplot(imgid, imgname, "%s app=%s" % (pr.url,k))  
+               ploturl = genplot(imgid, imgname, "%s   app=%s" % (pr.url[28:],k.replace("_","-")))  
                #get magic values
                current, runs, lifetime = get_results(pid, imgid)
                results.append({"app":k, "runs":runs, "current":current, "report":ploturl, "time":dtime, "lifetime":lifetime})

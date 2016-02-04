@@ -3,8 +3,9 @@ while true
 do
     date
     echo "Starting a run"
-    rm lastimage
-    annotate-output '+^[[33;1m%F_%X^[[0m' python runbot.py | ansi2html > lastlog
+    rm -f lastimage
+    script -qfc "python runbot.py" lastansilog
+    cat lastansilog | ansi2html > lastlog
     if [ -e lastimage ]
     then    
         cp lastlog /srv/reports/$(cat lastimage)/log.html
