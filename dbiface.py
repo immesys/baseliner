@@ -1,4 +1,6 @@
 import MySQLdb
+from warnings import filterwarnings
+filterwarnings('ignore', category = MySQLdb.Warning)
 import os
 
 with open("db.conf","r") as f:
@@ -42,7 +44,6 @@ class Platform(object):
         self.id = platformid
 
     def load_image(self, appname):
-        print repr(self.id)
         cur.execute("""SELECT idimages FROM images WHERE appname=%s AND target_platform=%s""", (appname, self.id))
         rv = cur.fetchone()
         if rv == None:
@@ -61,7 +62,7 @@ class Platform(object):
         i = self.load_image(appname)
         if i is not None:
             return i
-        return create_image(appname, comment, repository, commit)
+        return self.create_image(appname, comment, repository, commit)
 
 def load_platform(base, configuration):
     cur.execute("""SELECT idplatforms FROM platforms WHERE base=%s AND configuration=%s""", (base, configuration))

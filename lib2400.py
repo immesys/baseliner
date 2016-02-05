@@ -1,7 +1,7 @@
 import serial
 import io
 
-BAUDRATE=57600
+BAUDRATE=19200
 
 class KException(Exception):
     pass
