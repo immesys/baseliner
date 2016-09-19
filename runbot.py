@@ -26,7 +26,7 @@ retrigger_phrase = "@profilebot please recheck this"
 app_phrase = "running Apps/([^\s].*)"
 estimate_phrase = "use estimate mode"
 gh = Github("profilebot", password)
-repo = gh.get_repo("PowerProfiler/RIOT")
+repo = gh.get_repo("hamilton-mote/RIOT-OS")
 PRs = repo.get_pulls()
 def prc(pr, msg):
     pr.create_issue_comment(msg)
@@ -93,7 +93,7 @@ def genplot(imgid, imgname, subtitle):
 #    subprocess.check_call(["git","add","."])
 #    subprocess.check_call(["git","commit","-m","add a report","--author","Power Profiling Bot <profilebot@steelcode.com>"])
 #    subprocess.check_call(["git","push"])
-    headers = subprocess.check_output(["curl","-i","https://git.io","-F","url=https://raw.githubusercontent.com/PowerProfiler/reports/master/"+imgname+"/deviance.pdf"])
+    headers = subprocess.check_output(["curl","-i","https://git.io","-F","url=https://raw.githubusercontent.com/hamilton-mote/power-reports/master/"+imgname+"/deviance.pdf"])
     shorturl = [x for x in headers.splitlines() if x.startswith("Location:")][0].split(":",1)[1]
     return shorturl
 
