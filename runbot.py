@@ -2,7 +2,7 @@
 
 # This script is totally not for public consumption. Don't complain about
 # hardcoded stuffs.
-
+import shutil
 import time
 import argparse
 import subprocess
