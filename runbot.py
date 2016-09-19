@@ -164,7 +164,10 @@ for i in torun:
         try:
             print "Configuring repo"
             os.chdir("/srv")
-            shutil.rmtree('/srv/riot')
+            try:
+                shutil.rmtree('/srv/riot')
+            except:
+                print("could not delete /srv/riot")
             subprocess.check_call(["git","clone","--reference","/srv/os_cache","https://github.com/hamilton-mote/RIOT-OS.git","riot"])
             os.chdir("/srv/riot")
             subprocess.check_call(["git","fetch","--all"])
@@ -194,7 +197,10 @@ for i in torun:
         try:
             print "Building apps"
             os.chdir("/srv")
-            shutil.rmtree('/srv/apps')
+            try:
+                shutil.rmtree('/srv/apps')
+            except:
+                print("could not delete /srv/apps")
             subprocess.check_call(["git","clone","--reference","/srv/app_cache","https://github.com/hamilton-mote/Apps.git","apps"])
             appshash = subprocess.check_output(["git","log","-1",'--format="%H"']).strip()[1:-1]
         except:
