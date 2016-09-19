@@ -23,6 +23,7 @@ from matplotlib.ticker import FormatStrFormatter
 import numpy as np
 password = os.environ["PROFILEBOTPW"]
 retrigger_phrase = "@profilebot please recheck this"
+app_phrase = "running Apps/([^\s].*)"
 estimate_phrase = "use estimate mode"
 gh = Github("profilebot", password)
 repo = gh.get_repo("PowerProfiler/RIOT")
@@ -120,6 +121,7 @@ for pr in PRs:
         print "Skip, state = ",pr.state
     mustrun = True
     fast = False
+    app = "bcast_sensor_data"
     for c in pr.get_issue_comments():
         if c.user.login == "profilebot":
             mustrun = False
@@ -128,13 +130,16 @@ for pr in PRs:
             mustrun = True
         if estimate_phrase in c.body:
             fast = True
+        mg = re.search(app_phrase, c.body)
+        if mg != None:
+            app = mg.group(1)
     if mustrun:
         commit = pr.get_commits().reversed[0]
         imagename = pr.title.lower()
         imagename = imagename.replace(" ","_")
         imagename = re.sub("[^a-z0-9_]", "", imagename)
         imagename += "_"+commit.sha[:8]
-        torun += [(imagename, commit, pr, fast)]
+        torun += [(imagename, commit, pr, fast, app)]
 
 if len(torun) == 0:
     print "No PRs to run"
@@ -145,7 +150,7 @@ torun = torun[:1]
 print "We are processing PR: ",torun[0][0]
 
 for i in torun:
-    try:            
+    try:
         platform = "hamilton"
         pr = i[2]
         prc(pr,"Ok, I started on this now. It'll take some time to do all the trials, check back later.")
@@ -154,37 +159,43 @@ for i in torun:
         repository = pr.url
         commit = i[1]
         usefast = i[3]
+        app = i[4]
         tbranch = str(uuid.uuid4())
         try:
             print "Configuring repo"
+            os.chdir("/srv")
+            shutil.rmtree('/srv/riot')
+            subprocess.check_call(["git","clone","--reference","/srv/os_cache","https://github.com/hamilton-mote/RIOT-OS.git","riot"])
             os.chdir("/srv/riot")
-            subprocess.check_call(["git","reset","--hard"])
-            subprocess.check_call(["git","clean", "-dfx"])
             subprocess.check_call(["git","fetch","--all"])
             subprocess.check_call(["git","fetch","origin","pull/%d/head:T%s" %(pr.number, tbranch)])
-            preserveCode=False
-            if preserveCode:
-                subprocess.check_call(["git","checkout","hamilton-support"])
-                subprocess.check_call(["git","pull"])
-                subprocess.check_call(["git","checkout","-b","H"+tbranch])
-                subprocess.check_call(["git","rebase","--onto","T"+tbranch, "master", "H"+tbranch])
-            else:
-                subprocess.check_call(["git","checkout","T"+tbranch])
-                subprocess.check_call(["git","merge","hamilton-support","--no-commit"])
-      
+            subprocess.check_call(["git","checkout","T"+tbranch])
+            # os.chdir("/srv/riot")
+            # subprocess.check_call(["git","reset","--hard"])
+            # subprocess.check_call(["git","clean", "-dfx"])
+            # subprocess.check_call(["git","fetch","--all"])
+            # subprocess.check_call(["git","fetch","origin","pull/%d/head:T%s" %(pr.number, tbranch)])
+            # preserveCode=False
+            # if preserveCode:
+            #     subprocess.check_call(["git","checkout","hamilton-support"])
+            #     subprocess.check_call(["git","pull"])
+            #     subprocess.check_call(["git","checkout","-b","H"+tbranch])
+            #     subprocess.check_call(["git","rebase","--onto","T"+tbranch, "master", "H"+tbranch])
+            # else:
+            #     subprocess.check_call(["git","checkout","T"+tbranch])
+            #     subprocess.check_call(["git","merge","hamilton-support","--no-commit"])
+
         except Exception as e:
             prc(pr, "I could not rebase in the platform support. @immesys, I need human help")
             print traceback.format_exc()
             continue
 
-        
+
         try:
             print "Building apps"
-            os.chdir("/srv/apps")
-            subprocess.check_call(["git","reset","--hard"])
-            subprocess.check_call(["git","clean", "-dfx"])
-            subprocess.check_call(["git","fetch","--all"])
-            subprocess.check_call(["git","pull"])
+            os.chdir("/srv")
+            shutil.rmtree('/srv/apps')
+            subprocess.check_call(["git","clone","--reference","/srv/app_cache","https://github.com/hamilton-mote/Apps.git","apps"])
             appshash = subprocess.check_output(["git","log","-1",'--format="%H"']).strip()[1:-1]
         except:
             prc(pr, "I could not update the profiling apps. @immesys, I need human help")
@@ -193,7 +204,7 @@ for i in torun:
 
         results = []
         os.chdir("/srv/base")
-        for k in os.listdir("/srv/apps"):
+        for k in [app]:#os.listdir("/srv/apps"):
             try:
                print "\033[43;33;1mRunning application: %s\033[0m" % k
                if not os.path.isdir("/srv/apps/"+k):
@@ -232,19 +243,19 @@ for i in torun:
                pid = int(pid)
                imgid = int(imgid)
                print "done: ", repr(pid), repr(imgid)
-               ploturl = genplot(imgid, imgname, "%s   app=%s%s" % (pr.url[28:],k.replace("_","-"), " [ESTIMATE MODE]" if usefast else ""))  
+               ploturl = genplot(imgid, imgname, "%s   app=%s%s" % (pr.url[28:],k.replace("_","-"), " [ESTIMATE MODE]" if usefast else ""))
                #get magic values
                current, runs, lifetime = get_results(pid, imgid)
                results.append({"app":k, "runs":runs, "current":current, "report":ploturl, "time":dtime, "lifetime":lifetime})
                os.chdir("/srv/base")
             except:
-               prc(pr, "I could not build and run %s on this PR, @immesys will check why" % k) 
-               print traceback.format_exc() 
+               prc(pr, "I could not build and run %s on this PR, @immesys will check why" % k)
+               print traceback.format_exc()
                continue
         if len(results) == 0:
             prc(pr, "There is no report, none of the apps ran correctly")
         else:
-            report = mkreport(results, pr.title, commit.sha, appshash, usefast) 
+            report = mkreport(results, pr.title, commit.sha, appshash, usefast)
             prc(pr, report)
     except:
         prc(pr, "I died while processing this, my bad. @immesys will tend to it shortly")
