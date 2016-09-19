@@ -27,6 +27,8 @@ parser.add_argument('--vmin', type=float, action='store', default=3.00,
                    help='The min voltage trip')
 parser.add_argument('--vmax', type=float, action='store', default=3.4,
                    help='The max voltage trip')
+parser.add_argument('--estimate', type=bool, action='store', default=False,
+                   help='Use less trials')
 args = parser.parse_args()
 
 init()
@@ -45,7 +47,7 @@ time.sleep(1)
 plat = create_or_load_platform(args.platform, args.configuration)
 img = plat.create_or_load_image(args.image, comment=args.comment, repository=args.repository, commit=args.commit)
 print "IDENTIFIERS:", plat.id, img.id
-s = Scheduler(10,args.vmin,args.vstart,args.vmax,img, skipfine=False)
-#s = Scheduler(args.window,args.vmin,args.vstart,args.vmax,img, skipfine=False)
+s = Scheduler(args.window,args.vmin,args.vstart,args.vmax,img, skipfine=False, estimate=args.estimate)
+#s = Scheduler(20,args.vmin,args.vstart,args.vmax,img, skipfine=False)
 
 s.begin()

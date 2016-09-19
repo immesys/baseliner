@@ -1,13 +1,18 @@
 import MySQLdb
-from warnings import filterwarnings
-filterwarnings('ignore', category = MySQLdb.Warning)
+#from warnings import filterwarnings
+#filterwarnings('ignore', category = MySQLdb.Warning)
 import os
 
-with open("db.conf","r") as f:
-    db_user, db_pass, db_host = f.readline().strip().split(";")
-
-db = MySQLdb.connect(host=db_host, user=db_user, passwd=db_pass, db="baseliner")
-cur = db.cursor()
+def reinit():
+    global db
+    global cur
+    with open("/srv/base/db.conf","r") as f:
+        db_user, db_pass, db_host = f.readline().strip().split(";")
+    db = MySQLdb.connect(host=db_host, user=db_user, passwd=db_pass, db="baseliner")
+    db.autocommit(True)
+    cur = db.cursor()
+    cur.execute("""set session transaction isolation level READ COMMITTED""")
+reinit()
 
 class Run(object):
     def __init__(self, runid):
@@ -18,12 +23,10 @@ class Run(object):
         cur.execute("""INSERT INTO probe (seqnum, voltage, runfraction, run, time) VALUES
                         (%s, %s, %s, %s, %s)""", (self.probeseq, voltage, runfrac, self.runid, time))
         self.probeseq += 1
-        db.commit()
 
     def log_result(self, frac, time, voltage, result):
         cur.execute("""INSERT INTO runreport (frac, time, voltage, result, run) VALUES
                         (%s, %s, %s, %s, %s)""", (frac, time, voltage, result, self.runid))
-        db.commit()
 
 class Image(object):
     def __init__(self, imageid):
@@ -35,7 +38,6 @@ class Image(object):
         cur.execute("""SELECT LAST_INSERT_ID()""")
         rv = cur.fetchone()
         runid = rv[0]
-        db.commit()
         return Run(runid)
 
 class Platform(object):
@@ -55,7 +57,6 @@ class Platform(object):
             raise Exception("Image already exists")
         cur.execute("""INSERT INTO images (appname, comment, repository, commit, target_platform) VALUES
                         (%s, %s, %s, %s, %s)""", (appname, comment, repository, commit, self.id))
-        db.commit()
         return self.load_image(appname)
     
     def create_or_load_image(self, appname, comment="", repository=None, commit=None):
@@ -76,7 +77,6 @@ def create_platform(base, configuration):
     if p != None:
         raise Exception("Platform already exists")
     cur.execute("""INSERT INTO platforms (base, configuration) VALUES (%s, %s)""", (base, configuration))
-    db.commit()
     return load_platform(base, configuration)
 
 def create_or_load_platform(base, configuration):
