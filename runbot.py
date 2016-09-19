@@ -202,6 +202,7 @@ for i in torun:
             except:
                 print("could not delete /srv/apps")
             subprocess.check_call(["git","clone","--reference","/srv/app_cache","https://github.com/hamilton-mote/Apps.git","apps"])
+            os.chdir("/srv/apps")
             appshash = subprocess.check_output(["git","log","-1",'--format="%H"']).strip()[1:-1]
         except:
             prc(pr, "I could not update the profiling apps. @immesys, I need human help")
