@@ -23,21 +23,27 @@ from matplotlib.ticker import FormatStrFormatter
 import numpy as np
 password = os.environ["PROFILEBOTPW"]
 retrigger_phrase = "@profilebot please recheck this"
+estimate_phrase = "use estimate mode"
 gh = Github("profilebot", password)
 repo = gh.get_repo("PowerProfiler/RIOT")
 PRs = repo.get_pulls()
-def mkreport(results, pullreq, commit, testapps):
+def prc(pr, msg):
+    pr.create_issue_comment(msg)
+    #print "!!!!PRC!!!!!!: ",msg
+
+def mkreport(results, pullreq, commit, testapps, estimate):
     template="""
 # Power profile
 ```
 Pull request    : {pullreq}
 Commit hash     : {commit}
 TestApps hash   : {testapps}
+Estimate mode   : {estimate}
 ```
 Application  |  Avg [mA] | Trials | Time | Norm. Batt. | Graph
 ---|---|---|---|---|---
 """
-    rv = template.format(pullreq=pullreq, commit=commit, testapps=testapps)
+    rv = template.format(pullreq=pullreq, commit=commit, testapps=testapps, estimate=estimate)
     for r in results:
         m = r["time"]/60
         s = r["time"]%60
@@ -47,6 +53,7 @@ Application  |  Avg [mA] | Trials | Time | Norm. Batt. | Graph
     return rv
 
 def genplot(imgid, imgname, subtitle):
+    reinit()
     majorFormatter = FormatStrFormatter('%.3f')
     cur.execute("SELECT * FROM report_run_ssq WHERE img=%s AND frac > 0.99",(imgid,))
     x = []
@@ -90,11 +97,21 @@ def genplot(imgid, imgname, subtitle):
     return shorturl
 
 def get_results(pid, imgid):
-    cur.execute("SELECT COUNT(*) FROM runs WHERE runs.image=%s", (imgid,))
-    total_runs = cur.fetchone()[0]
-    cur.execute("SELECT current, lifetime FROM report_current WHERE img=%s",(imgid,))
-    current, lifetime = cur.fetchone()
-    return current, total_runs, lifetime
+    reinit()
+    try:
+        db.commit()
+        cur.execute("SELECT COUNT(*) FROM runs WHERE runs.image=%s", (imgid,))
+        total_runs = cur.fetchone()[0]
+        cur.execute("SELECT current, lifetime FROM report_current WHERE img=%s",(imgid,))
+        current, lifetime = cur.fetchone()
+    except:
+        print "PID was:",pid
+        print "IMGID was:",imgid
+        print "TR was:",total_runs
+        print cur.execute("SELECT current, lifetime FROM report_current WHERE img=%s",(imgid,))
+        print cur.fetchone()
+        raise
+    return float(current), int(total_runs), float(lifetime)
 
 torun = []
 for pr in PRs:
@@ -102,18 +119,22 @@ for pr in PRs:
     if pr.state != "open":
         print "Skip, state = ",pr.state
     mustrun = True
+    fast = False
     for c in pr.get_issue_comments():
         if c.user.login == "profilebot":
             mustrun = False
-        if c.user.login == "immesys" and retrigger_phrase in c.body:
+            fast = False
+        if retrigger_phrase in c.body:
             mustrun = True
+        if estimate_phrase in c.body:
+            fast = True
     if mustrun:
         commit = pr.get_commits().reversed[0]
         imagename = pr.title.lower()
         imagename = imagename.replace(" ","_")
         imagename = re.sub("[^a-z0-9_]", "", imagename)
         imagename += "_"+commit.sha[:8]
-        torun += [(imagename, commit, pr)]
+        torun += [(imagename, commit, pr, fast)]
 
 if len(torun) == 0:
     print "No PRs to run"
@@ -127,11 +148,12 @@ for i in torun:
     try:            
         platform = "hamilton"
         pr = i[2]
-        pr.create_issue_comment("Ok, I started on this now. It'll take some time to do all the trials, check back later.")
+        prc(pr,"Ok, I started on this now. It'll take some time to do all the trials, check back later.")
         image = i[0]
         comment = "for @"+pr.user.login
         repository = pr.url
         commit = i[1]
+        usefast = i[3]
         tbranch = str(uuid.uuid4())
         try:
             print "Configuring repo"
@@ -151,7 +173,7 @@ for i in torun:
                 subprocess.check_call(["git","merge","hamilton-support","--no-commit"])
       
         except Exception as e:
-            pr.create_issue_comment("I could not rebase in the platform support. @immesys, I need human help")
+            prc(pr, "I could not rebase in the platform support. @immesys, I need human help")
             print traceback.format_exc()
             continue
 
@@ -165,7 +187,7 @@ for i in torun:
             subprocess.check_call(["git","pull"])
             appshash = subprocess.check_output(["git","log","-1",'--format="%H"']).strip()[1:-1]
         except:
-            pr.create_issue_comment("I could not update the profiling apps. @immesys, I need human help")
+            prc(pr, "I could not update the profiling apps. @immesys, I need human help")
             print traceback.format_exc()
             continue
 
@@ -190,36 +212,41 @@ for i in torun:
                imgname=image+"_"+k+"_"+str(int(time.time()))
                with open("lastimage","w") as f:
                   f.write(imgname)
-               subprocess.check_call(["python","run.py",
+               ra = ["python","run.py",
                    "--platform",platform,
                    "--configuration","stock",
                    "--image",imgname,
                    "--comment",comment,
                    "--repository", repository,
-                   "--commit", commit.sha])
+                   "--commit", commit.sha]
+               if usefast:
+                    ra += ["--estimate","True"]
+               subprocess.check_call(ra)
                dtime = time.time()-thn
                idents = subprocess.check_output(["python","getident.py",
                    "--platform",platform,
                    "--configuration","stock",
-                   "--image",image+"_"+k])
+                   "--image",imgname])
+               time.sleep(20)
                pid, imgid = idents.splitlines()[0].strip().split()
-               pid, imgid = int(pid), int(imgid)
-               print "done: ", pid, imgid
-               ploturl = genplot(imgid, imgname, "%s   app=%s" % (pr.url[28:],k.replace("_","-")))  
+               pid = int(pid)
+               imgid = int(imgid)
+               print "done: ", repr(pid), repr(imgid)
+               ploturl = genplot(imgid, imgname, "%s   app=%s%s" % (pr.url[28:],k.replace("_","-"), " [ESTIMATE MODE]" if usefast else ""))  
                #get magic values
                current, runs, lifetime = get_results(pid, imgid)
                results.append({"app":k, "runs":runs, "current":current, "report":ploturl, "time":dtime, "lifetime":lifetime})
                os.chdir("/srv/base")
             except:
-               pr.create_issue_comment("I could not build and run %s on this PR, @immesys will check why" % k) 
+               prc(pr, "I could not build and run %s on this PR, @immesys will check why" % k) 
                print traceback.format_exc() 
                continue
         if len(results) == 0:
-            pr.create_issue_comment("There is no report, none of the apps ran correctly")
+            prc(pr, "There is no report, none of the apps ran correctly")
         else:
-            report = mkreport(results, pr.title, commit.sha, appshash) 
-            pr.create_issue_comment(report)
+            report = mkreport(results, pr.title, commit.sha, appshash, usefast) 
+            prc(pr, report)
     except:
-        pr.create_issue_comment("I died while processing this, my bad. @immesys will tend to it shortly")
+        prc(pr, "I died while processing this, my bad. @immesys will tend to it shortly")
         print traceback.format_exc()
         continue

@@ -34,7 +34,7 @@ def reboot_target(vtarget, compl):
 class Scheduler(object):
 
     def __init__ (self, target_time, v_min, v_start, v_max, img, \
-        outside_runs=1, core_runs=7, boot_slack=3, idle_c_compl=0.1, tick=0.15, finesteps=64, skipfine=False):
+        outside_runs=1, core_runs=5, boot_slack=3, idle_c_compl=0.1, tick=0.15, finesteps=64, skipfine=False, estimate=False):
         self.target_time = target_time
         self.v_min = v_min
         self.v_start = v_start
@@ -45,6 +45,7 @@ class Scheduler(object):
         self.boot_slack = boot_slack
         self.idle_c_compl = idle_c_compl
         self.tick = tick
+        self.estimate = estimate
         self.skipfine=skipfine
         self.finesteps = finesteps
         wcmd(":SYST:BEEP:STAT 0")
@@ -52,6 +53,8 @@ class Scheduler(object):
     def begin(self):
         cur = 0.064
         seqno = 0
+        if self.estimate:
+            self.target_time = 20
         while True:
             frac, res, v = self.do_run(cur, "coarse_%d" % seqno, self.target_time/10., "coarse")
             print ("\033[34;1m [C]> i=%.3fmA frac=%.2f%% res=%s v=%.2f \033[0m" %
@@ -65,13 +68,14 @@ class Scheduler(object):
         start = cur*0.9
         end = (cur*2)*1.1
         print "\033[33;1mCOMPLETED COARSE: %.3f < C < %.3f \033[0m" % (start*1000, end*1000)
-
-        subcoursesteps = 32
-        #subcoursesteps = 4
+        if self.estimate:
+            subcoursesteps = 16
+        else:
+            subcoursesteps = 32
         subcoarse = []
         cur = start
         for i in xrange(subcoursesteps):
-            frac, res, v = self.do_run(cur, "subcoarse_%d" % seqno, self.target_time/10., "coarse")
+            frac, res, v = self.do_run(cur, "subcoarse_%d" % seqno, self.target_time/7., "coarse")
             print ("\033[34;1m [S]> i=%.3fmA frac=%.2f%% res=%s v=%.2f \033[0m" %
                 (cur*1000, frac*100,
                 "HIGH" if res == 1 else ("LOW" if res == -1 else "INS"), v))
@@ -80,7 +84,7 @@ class Scheduler(object):
             seqno += 1
 
         startidx = 0
-        endidx = len(subcoarse)
+        endidx = len(subcoarse) - 1
         for i in xrange(len(subcoarse)):
             if subcoarse[i][2] == -1:
                 startidx = i
@@ -90,18 +94,21 @@ class Scheduler(object):
         start = subcoarse[startidx][0]
         end = subcoarse[endidx][0]
         diff = end - start
-        start -= diff
-        end += diff
+        start -= diff*0.3
+        end += diff*0.3
         start = max(0, start)
         print "\033[33;1mCOMPLETED SUB-COARSE: %.3f < C < %.3f \033[0m" % (start*1000, end*1000)
 
         seqno=0
         medium = []
         cur = start
-        msteps = 32
+        if self.estimate:
+            msteps = 12
+        else:
+            msteps = 32
         #msteps=4
         for i in xrange(msteps):
-            frac, res, v = self.do_run(cur, "medium_%d" % seqno, self.target_time/10., "medium")
+            frac, res, v = self.do_run(cur, "medium_%d" % seqno, self.target_time/3., "medium")
             print ("\033[34;1m [M]> i=%.3fmA frac=%.2f%% res=%s v=%.2f \033[0m" %
                 (cur*1000, frac*100,
                 "HIGH" if res == 1 else ("LOW" if res == -1 else "INS"), v))
@@ -122,7 +129,7 @@ class Scheduler(object):
             return
         #Now to do fine
         startidx = 0
-        endidx = len(medium)
+        endidx = len(medium) - 1
         for i in xrange(len(medium)):
             if medium[i][2] == -1:
                 startidx = i
@@ -133,14 +140,18 @@ class Scheduler(object):
         start = medium[startidx][0]
         end = medium[endidx][0]
         diff = end - start
-        start -= diff
-        end += diff
+        start -= diff*0.3
+        end += diff*0.3
         start = max(0, start)
         print "\033[33;1mCOMPLETED MEDIUM: %.3f < C < %.3f \033[0m" % (start*1000, end*1000)
         #print "Medium determination: %.3f < current < %.3f" % (start*1000, end*1000)
-        steps = self.finesteps
+        if not self.estimate:
+            steps = self.finesteps
+        else:
+            steps = 16
         delta = (end-start)/float(steps)
-        tests = [start + i*delta for i in xrange(steps)] * self.core_runs
+        nruns = 1 if self.estimate else self.core_runs
+        tests = [start + i*delta for i in xrange(steps)] * nruns
         #This should help disperse real-world time-varying factors like temperature
         random.shuffle(tests)
         for idx in xrange(len(tests)):
