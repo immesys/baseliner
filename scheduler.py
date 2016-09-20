@@ -51,7 +51,7 @@ class Scheduler(object):
         wcmd(":SYST:BEEP:STAT 0")
 
     def begin(self):
-        cur = 0.064
+        cur = 0.032
         seqno = 0
         if self.estimate:
             self.target_time = 20
@@ -64,6 +64,9 @@ class Scheduler(object):
             if res >= 0:
                 cur /= 2
             else:
+                break
+            if cur < 0.004: #known lower bound
+                cur = 0.001
                 break
         start = cur*0.9
         end = (cur*2)*1.1

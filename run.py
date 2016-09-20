@@ -19,7 +19,7 @@ parser.add_argument('--repository', type=str, action='store',
                    help='The repository URL for the code')
 parser.add_argument('--commit', type=str, action='store',
                    help='The commit hash')
-parser.add_argument('--window', type=int, action='store', default=60,
+parser.add_argument('--window', type=int, action='store', default=120,
                    help='The length of an evaluation window')
 parser.add_argument('--vstart', type=float, action='store', default=3.20,
                    help='The start voltage')
