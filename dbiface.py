@@ -1,6 +1,6 @@
 import MySQLdb
-#from warnings import filterwarnings
-#filterwarnings('ignore', category = MySQLdb.Warning)
+from warnings import filterwarnings
+filterwarnings('ignore', category = MySQLdb.Warning)
 import os
 
 def reinit():
@@ -58,7 +58,7 @@ class Platform(object):
         cur.execute("""INSERT INTO images (appname, comment, repository, commit, target_platform) VALUES
                         (%s, %s, %s, %s, %s)""", (appname, comment, repository, commit, self.id))
         return self.load_image(appname)
-    
+
     def create_or_load_image(self, appname, comment="", repository=None, commit=None):
         i = self.load_image(appname)
         if i is not None:
@@ -85,5 +85,3 @@ def create_or_load_platform(base, configuration):
         return p
     else:
         return create_platform(base, configuration)
-
-
