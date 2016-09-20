@@ -104,7 +104,7 @@ class Scheduler(object):
         start -= diff*0.3
         end += diff*0.3
         start = max(0, start)
-        print "\033[33;1mCOMPLETED SUB-COARSE: %.3f < C < %.3f \033[0m" % (start*1000, end*1000)
+        print "\033[33;1mCOMPLETED SUB-COARSE: %.5f < C < %.5f \033[0m" % (start*1000, end*1000)
 
         seqno=0
         medium = []
@@ -116,7 +116,7 @@ class Scheduler(object):
         #msteps=4
         for i in xrange(msteps):
             frac, res, v = self.do_run(cur, "medium_%d" % seqno, self.target_time/3., "medium")
-            print ("\033[34;1m [M]> i=%.3fmA frac=%.2f%% res=%s v=%.2f \033[0m" %
+            print ("\033[34;1m [M]> i=%.5fmA frac=%.2f%% res=%s v=%.2f \033[0m" %
                 (cur*1000, frac*100,
                 "HIGH" if res == 1 else ("LOW" if res == -1 else "INS"), v))
             medium += [(cur, frac, res, v)]
@@ -143,14 +143,13 @@ class Scheduler(object):
             if medium[i][2] == 1:
                 endidx = min(endidx, i)
 
-
         start = medium[startidx][0]
         end = medium[endidx][0]
         diff = end - start
-        start -= diff*0.3
-        end += diff*0.3
+        start -= diff*0.4
+        end += diff*0.4
         start = max(0, start)
-        print "\033[33;1mCOMPLETED MEDIUM: %.3f < C < %.3f \033[0m" % (start*1000, end*1000)
+        print "\033[33;1mCOMPLETED MEDIUM: %.5f < C < %.5f \033[0m" % (start*1000, end*1000)
         #print "Medium determination: %.3f < current < %.3f" % (start*1000, end*1000)
         if not self.estimate:
             steps = self.finesteps
@@ -164,7 +163,7 @@ class Scheduler(object):
         for idx in xrange(len(tests)):
             cur = tests[idx]
             frac, res, v = self.do_run(cur, "fine_%d" % idx, self.target_time, "fine")
-            print ("\033[34;1m [F %d/%d]> i=%.3fmA frac=%.2f%% res=%s v=%.2f \033[0m" %
+            print ("\033[34;1m [F %d/%d]> i=%.5fmA frac=%.2f%% res=%s v=%.2f \033[0m" %
                 (idx+1,len(tests), cur*1000, frac*100,
                 "HIGH" if res == 1 else ("LOW" if res == -1 else "INS"), v))
         print "\033[33;1mCOMPLETED FINE\033[0m"
