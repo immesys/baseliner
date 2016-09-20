@@ -65,8 +65,8 @@ class Scheduler(object):
                 cur /= 2
             else:
                 break
-            if cur < 0.004: #known lower bound
-                cur = 0.001
+            if cur < 0.000004: #known lower bound
+                cur = 0.000001
                 break
         start = cur*0.9
         end = (cur*2)*1.1
