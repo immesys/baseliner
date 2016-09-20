@@ -90,9 +90,9 @@ def genplot(imgid, imgname, subtitle):
     os.makedirs("/srv/reports/"+imgname)
     plt.savefig("/srv/reports/%s/deviance.pdf" % imgname)
     os.chdir("/srv/reports/")
-#    subprocess.check_call(["git","add","."])
-#    subprocess.check_call(["git","commit","-m","add a report","--author","Power Profiling Bot <profilebot@steelcode.com>"])
-#    subprocess.check_call(["git","push"])
+    subprocess.check_call(["git","add","."])
+    subprocess.check_call(["git","commit","-m","add a report","--author","Power Profiling Bot <profilebot@steelcode.com>"])
+    subprocess.check_call(["git","push"])
     headers = subprocess.check_output(["curl","-i","https://git.io","-F","url=https://raw.githubusercontent.com/hamilton-mote/power-reports/master/"+imgname+"/deviance.pdf"])
     shorturl = [x for x in headers.splitlines() if x.startswith("Location:")][0].split(":",1)[1]
     return shorturl
