@@ -53,15 +53,19 @@ class Scheduler(object):
     def begin(self):
         cur = 0.032
         seqno = 0
+        insh = cur
         if self.estimate:
             self.target_time = 20
         while True:
-            frac, res, v = self.do_run(cur, "coarse_%d" % seqno, self.target_time/10., "coarse")
+            frac, res, v = self.do_run(cur, "coarse_%d" % seqno, self.target_time/3., "coarse")
             print ("\033[34;1m [C]> i=%.5fmA frac=%.2f%% res=%s v=%.2f \033[0m" %
                 (cur*1000, frac*100,
                 "HIGH" if res == 1 else ("LOW" if res == -1 else "INS"), v))
             seqno += 1
-            if res >= 0:
+            if res > 0:
+                insh = cur
+                cur /= 2
+            elif res == 0:
                 cur /= 2
             else:
                 break
@@ -69,7 +73,7 @@ class Scheduler(object):
                 cur = 0.000001
                 break
         start = cur*0.9
-        end = (cur*2)*1.1
+        end = insh*1.1
         print "\033[33;1mCOMPLETED COARSE: %.3f < C < %.3f \033[0m" % (start*1000, end*1000)
         if self.estimate:
             subcoursesteps = 16
@@ -78,7 +82,7 @@ class Scheduler(object):
         subcoarse = []
         cur = start
         for i in xrange(subcoursesteps):
-            frac, res, v = self.do_run(cur, "subcoarse_%d" % seqno, self.target_time/7., "coarse")
+            frac, res, v = self.do_run(cur, "subcoarse_%d" % seqno, self.target_time/2., "coarse")
             print ("\033[34;1m [S]> i=%.5fmA frac=%.2f%% res=%s v=%.2f \033[0m" %
                 (cur*1000, frac*100,
                 "HIGH" if res == 1 else ("LOW" if res == -1 else "INS"), v))
