@@ -57,7 +57,7 @@ class Scheduler(object):
             self.target_time = 20
         while True:
             frac, res, v = self.do_run(cur, "coarse_%d" % seqno, self.target_time/10., "coarse")
-            print ("\033[34;1m [C]> i=%.3fmA frac=%.2f%% res=%s v=%.2f \033[0m" %
+            print ("\033[34;1m [C]> i=%.5fmA frac=%.2f%% res=%s v=%.2f \033[0m" %
                 (cur*1000, frac*100,
                 "HIGH" if res == 1 else ("LOW" if res == -1 else "INS"), v))
             seqno += 1
@@ -79,7 +79,7 @@ class Scheduler(object):
         cur = start
         for i in xrange(subcoursesteps):
             frac, res, v = self.do_run(cur, "subcoarse_%d" % seqno, self.target_time/7., "coarse")
-            print ("\033[34;1m [S]> i=%.3fmA frac=%.2f%% res=%s v=%.2f \033[0m" %
+            print ("\033[34;1m [S]> i=%.5fmA frac=%.2f%% res=%s v=%.2f \033[0m" %
                 (cur*1000, frac*100,
                 "HIGH" if res == 1 else ("LOW" if res == -1 else "INS"), v))
             subcoarse += [(cur, frac, res, v)]
