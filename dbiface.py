@@ -10,6 +10,7 @@ def reinit():
         db_user, db_pass, db_host = f.readline().strip().split(";")
     db = MySQLdb.connect(host=db_host, user=db_user, passwd=db_pass, db="baseliner")
     db.autocommit(True)
+    db.pring(True)
     cur = db.cursor()
     cur.execute("""set session transaction isolation level READ COMMITTED""")
 reinit()
